@@ -131,6 +131,7 @@ class LoadImagesAndLabelsAndMasks(LoadImagesAndLabels):  # for training/testing
             # apply the pre albumentation
             if self.augment:
                 # apply augs here
+                self.pre_albumentations(img, labels, segments)
                 pass
                 
             
