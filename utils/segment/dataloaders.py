@@ -99,6 +99,7 @@ class LoadImagesAndLabelsAndMasks(LoadImagesAndLabels):  # for training/testing
         downsample_ratio=1,
         overlap=False,
     ):
+        print(rect, cache_images)
         super().__init__(path, img_size, batch_size, augment, hyp, rect, image_weights, cache_images, single_cls,
                          stride, pad, min_items, prefix)
         self.downsample_ratio = downsample_ratio
@@ -120,17 +121,28 @@ class LoadImagesAndLabelsAndMasks(LoadImagesAndLabels):  # for training/testing
                 img, labels, segments = mixup(img, labels, segments, *self.load_mosaic(random.randint(0, self.n - 1)))
 
         else:
-            # Load image
-            img, (h0, w0), (h, w) = self.load_image(index)
-
+            # Load image, labels and segments
+            # (h0, w0), (h, w)
+            
+            img = self.load_image_original(index) # original image as it is output of cv2.imread
+            labels = self.labels[index].copy() # np array (num_bboxes, 6) nromlaized class_id + bboxes in yolo format [xc, yc, w, h]
+            segments = self.segments[index].copy() # list of np.aray for polygons [(num_points, 2)]
+            
+            # apply the pre albumentation
+            if self.augment:
+                # apply augs here
+                pass
+                
+            
+            if os.path.basename(self.im_files[index]) == "17e5b483-7482-4977-919f-e9704a3f5cd0.jpg":
+                save_in = f"./logs_{os.path.basename(self.im_files[index])}.log"
+                os.system(f'echo "{self.im_files[index]}\n{img.shape}\n{str(labels)}\n{str(segments)}\n\n\n\n" >> {save_in}')
+            
             # Letterbox
             shape = self.batch_shapes[self.batch[index]] if self.rect else self.img_size  # final letterboxed shape
             img, ratio, pad = letterbox(img, shape, auto=False, scaleup=self.augment)
             shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
 
-            labels = self.labels[index].copy()
-            # [array, array, ....], array.shape=(num_points, 2), xyxyxyxy
-            segments = self.segments[index].copy()
             if len(segments):
                 for i_s in range(len(segments)):
                     segments[i_s] = xyn2xy(
@@ -172,7 +184,7 @@ class LoadImagesAndLabelsAndMasks(LoadImagesAndLabels):  # for training/testing
         if self.augment:
             # Albumentations
             # there are some augmentation that won't change boxes and masks,
-            # so just be it for now.
+            # so just be it for now
             img, labels = self.albumentations(img, labels)
             nl = len(labels)  # update after albumentations
 

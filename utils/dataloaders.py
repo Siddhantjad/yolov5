@@ -28,7 +28,7 @@ from PIL import ExifTags, Image, ImageOps
 from torch.utils.data import DataLoader, Dataset, dataloader, distributed
 from tqdm import tqdm
 
-from utils.augmentations import (Albumentations, augment_hsv, classify_albumentations, classify_transforms, copy_paste,
+from utils.augmentations import (Albumentations, PreAlbumentations, augment_hsv, classify_albumentations, classify_transforms, copy_paste,
                                  letterbox, mixup, random_perspective)
 from utils.general import (DATASETS_DIR, LOGGER, NUM_THREADS, TQDM_BAR_FORMAT, check_dataset, check_requirements,
                            check_yaml, clean_str, cv2, is_colab, is_kaggle, segments2boxes, unzip_file, xyn2xy,
@@ -460,6 +460,7 @@ class LoadImagesAndLabels(Dataset):
         self.stride = stride
         self.path = path
         self.albumentations = Albumentations(size=img_size) if augment else None
+        self.pre_albumentations = PreAlbumentations()
 
         try:
             f = []  # image files
@@ -571,6 +572,8 @@ class LoadImagesAndLabels(Dataset):
             cache_images = False
         self.ims = [None] * n
         self.npy_files = [Path(f).with_suffix('.npy') for f in self.im_files]
+        
+        
         if cache_images:
             b, gb = 0, 1 << 30  # bytes of cached images, bytes per gigabytes
             self.im_hw0, self.im_hw = [None] * n, [None] * n
@@ -740,6 +743,23 @@ class LoadImagesAndLabels(Dataset):
                 im = cv2.resize(im, (math.ceil(w0 * r), math.ceil(h0 * r)), interpolation=interp)
             return im, (h0, w0), im.shape[:2]  # im, hw_original, hw_resized
         return self.ims[i], self.im_hw0[i], self.im_hw[i]  # im, hw_original, hw_resized
+    
+    def load_image_original(self, i):
+        # Loads 1 image from dataset index 'i', returns (im, original hw, resized hw)
+        im, f, fn = self.ims[i], self.im_files[i], self.npy_files[i],
+        if fn.exists():  # load npy
+            im = np.load(fn)
+        else:  # read image
+            im = cv2.imread(f)  # BGR
+            assert im is not None, f'Image Not Found {f}'
+
+        return im 
+        h0, w0 = im.shape[:2]  # orig hw
+        r = self.img_size / max(h0, w0)  # ratio
+        if r != 1:  # if sizes are not equal
+            interp = cv2.INTER_LINEAR if (self.augment or r > 1) else cv2.INTER_AREA
+            im = cv2.resize(im, (math.ceil(w0 * r), math.ceil(h0 * r)), interpolation=interp)
+        return im, (h0, w0), im.shape[:2]  # im, hw_original, hw_resized
 
     def cache_images_to_disk(self, i):
         # Saves an image as an *.npy file for faster loading
