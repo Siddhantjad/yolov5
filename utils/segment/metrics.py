@@ -21,7 +21,7 @@ def ap_per_class_box_and_mask(
         pred_cls,
         target_cls,
         plot=False,
-        save_dir='.',
+        save_dir=".",
         names=(),
 ):
     """
@@ -37,7 +37,7 @@ def ap_per_class_box_and_mask(
                                  plot=plot,
                                  save_dir=save_dir,
                                  names=names,
-                                 prefix='Box')[2:]
+                                 prefix="Box")[2:]
     results_masks = ap_per_class(tp_m,
                                  conf,
                                  pred_cls,
@@ -45,21 +45,21 @@ def ap_per_class_box_and_mask(
                                  plot=plot,
                                  save_dir=save_dir,
                                  names=names,
-                                 prefix='Mask')[2:]
+                                 prefix="Mask")[2:]
 
     results = {
-        'boxes': {
-            'p': results_boxes[0],
-            'r': results_boxes[1],
-            'ap': results_boxes[3],
-            'f1': results_boxes[2],
-            'ap_class': results_boxes[4]},
-        'masks': {
-            'p': results_masks[0],
-            'r': results_masks[1],
-            'ap': results_masks[3],
-            'f1': results_masks[2],
-            'ap_class': results_masks[4]}}
+        "boxes": {
+            "p": results_boxes[0],
+            "r": results_boxes[1],
+            "ap": results_boxes[3],
+            "f1": results_boxes[2],
+            "ap_class": results_boxes[4]},
+        "masks": {
+            "p": results_masks[0],
+            "r": results_masks[1],
+            "ap": results_masks[3],
+            "f1": results_masks[2],
+            "ap_class": results_masks[4]}}
     return results
 
 
@@ -79,6 +79,22 @@ class Metric:
             (nc, ) or [].
         """
         return self.all_ap[:, 0] if len(self.all_ap) else []
+  
+    @property
+    def ap75(self):
+        """AP@0.75 of all classes.
+        Return:
+            (nc, ) or [].
+        """
+        return self.all_ap[:, 5] if len(self.all_ap) else []
+
+    @property
+    def ap90(self):
+        """AP@0.90 of all classes.
+        Return:
+            (nc, ) or [].
+        """
+        return self.all_ap[:, 8] if len(self.all_ap) else []
 
     @property
     def ap(self):
@@ -113,20 +129,37 @@ class Metric:
         return self.all_ap[:, 0].mean() if len(self.all_ap) else 0.0
 
     @property
+    def map75(self):
+        """Mean AP@0.75 of all classes.
+        Return:
+            float.
+        """
+        return self.all_ap[:, 5].mean() if len(self.all_ap) else 0.0
+        
+    @property
+    def map90(self):
+        """Mean AP@0.90 of all classes.
+        Return:
+            float.
+        """
+        return self.all_ap[:, 8].mean() if len(self.all_ap) else 0.0
+
+    @property
     def map(self):
         """Mean AP@0.5:0.95 of all classes.
         Return:
             float.
         """
+        print(self.all_ap.shape)
         return self.all_ap.mean() if len(self.all_ap) else 0.0
 
     def mean_results(self):
         """Mean of results, return mp, mr, map50, map"""
-        return (self.mp, self.mr, self.map50, self.map)
+        return (self.mp, self.mr, self.map50, self.map75, self.map90, self.map)
 
     def class_result(self, i):
         """class-aware result, return p[i], r[i], ap50[i], ap[i]"""
-        return (self.p[i], self.r[i], self.ap50[i], self.ap[i])
+        return (self.p[i], self.r[i], self.ap50[i], self.ap75[i], self.ap90[i], self.ap[i])
 
     def get_maps(self, nc):
         maps = np.zeros(nc) + self.map
@@ -159,8 +192,8 @@ class Metrics:
         Args:
             results: Dict{'boxes': Dict{}, 'masks': Dict{}}
         """
-        self.metric_box.update(list(results['boxes'].values()))
-        self.metric_mask.update(list(results['masks'].values()))
+        self.metric_box.update(list(results["boxes"].values()))
+        self.metric_mask.update(list(results["masks"].values()))
 
     def mean_results(self):
         return self.metric_box.mean_results() + self.metric_mask.mean_results()
@@ -178,33 +211,35 @@ class Metrics:
 
 
 KEYS = [
-    'train/box_loss',
-    'train/seg_loss',  # train loss
-    'train/obj_loss',
-    'train/cls_loss',
-    'metrics/precision(B)',
-    'metrics/recall(B)',
-    'metrics/mAP_0.5(B)',
-    'metrics/mAP_0.5:0.95(B)',  # metrics
-    'metrics/precision(M)',
-    'metrics/recall(M)',
-    'metrics/mAP_0.5(M)',
-    'metrics/mAP_0.5:0.95(M)',  # metrics
-    'val/box_loss',
-    'val/seg_loss',  # val loss
-    'val/obj_loss',
-    'val/cls_loss',
-    'x/lr0',
-    'x/lr1',
-    'x/lr2',]
+    "train/box_loss",
+    "train/seg_loss",  # train loss
+    "train/obj_loss",
+    "train/cls_loss",
+    "metrics/precision(B)",
+    "metrics/recall(B)",
+    "metrics/mAP_0.5(B)",
+    "metrics/mAP_0.5:0.95(B)",  # metrics
+    "metrics/precision(M)",
+    "metrics/recall(M)",
+    "metrics/mAP_0.5(M)",
+    "metrics/mAP_0.7(M)",
+    "metrics/mAP_0.9(M)",
+    "metrics/mAP_0.5:0.95(M)",  # metrics
+    "val/box_loss",
+    "val/seg_loss",  # val loss
+    "val/obj_loss",
+    "val/cls_loss",
+    "x/lr0",
+    "x/lr1",
+    "x/lr2",]
 
 BEST_KEYS = [
-    'best/epoch',
-    'best/precision(B)',
-    'best/recall(B)',
-    'best/mAP_0.5(B)',
-    'best/mAP_0.5:0.95(B)',
-    'best/precision(M)',
-    'best/recall(M)',
-    'best/mAP_0.5(M)',
-    'best/mAP_0.5:0.95(M)',]
+    "best/epoch",
+    "best/precision(B)",
+    "best/recall(B)",
+    "best/mAP_0.5(B)",
+    "best/mAP_0.5:0.95(B)",
+    "best/precision(M)",
+    "best/recall(M)",
+    "best/mAP_0.5(M)",
+    "best/mAP_0.5:0.95(M)",]
