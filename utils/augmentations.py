@@ -11,6 +11,7 @@ import numpy as np
 import torch
 import torchvision.transforms as T
 import torchvision.transforms.functional as TF
+from imantics import Polygons, Mask
 
 from utils.general import LOGGER, check_version, colorstr, resample_segments, segment2box, xywhn2xyxy
 from utils.metrics import bbox_ioa
@@ -30,11 +31,11 @@ class Albumentations:
 
             T = [
                 A.RandomResizedCrop(height=size, width=size, scale=(0.8, 1.0), ratio=(0.9, 1.11), p=0.0),
-                A.Blur(p=0.01),
-                A.MedianBlur(p=0.01),
-                A.ToGray(p=0.01),
-                A.CLAHE(p=0.01),
-                A.RandomBrightnessContrast(p=0.0),
+                A.Blur(p=0.00),
+                A.MedianBlur(p=0.00),
+                A.ToGray(p=0.00),
+                A.CLAHE(p=0.00),
+                A.RandomBrightnessContrast(p=0.00),
                 A.RandomGamma(p=0.0),
                 A.ImageCompression(quality_lower=75, p=0.0)]  # transforms
             self.transform = A.Compose(T, bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels']))
@@ -128,14 +129,11 @@ class PreAlbumentations:
             new = self.transforms_partial(image=im, bboxes=labels[:, 1:], class_labels=labels[:, 0], mask=mask.array)
             new_im, new_labels = new['image'], np.array([[c, *b] for c, b in zip(new['class_labels'], new['bboxes'])])
             new_segments = []
-            for mask_ in new["mask"]:
-                new_points = []
-                for new_point in Mask(mask_).polygons().points:
-                    new_point[:, 0] /= image_width
-                    new_point[:, 1] /= image_height
-                    new_points.append(new_point)
-                    
-                new_segments.append(new_points)
+            for new_segment in Mask(mask.array).polygons().points:
+                new_segment = new_segment.astype(np.float64)
+                new_segment[:, 0] /= image_width
+                new_segment[:, 1] /= image_height
+                new_segments.append(new_segment)
             return new_im, new_labels, new_segments
             
         # apply augmentation for complete object
@@ -145,15 +143,11 @@ class PreAlbumentations:
             new = self.transforms_commplete(image=im, bboxes=labels[:, 1:], class_labels=labels[:, 0], mask=mask.array)
             new_im, new_labels = new['image'], np.array([[c, *b] for c, b in zip(new['class_labels'], new['bboxes'])])
             new_segments = []
-            for mask_ in new["mask"]:
-                new_points = []
-                for new_point in Mask(mask_).polygons().points:
-                    new_point[:, 0] /= image_width
-                    new_point[:, 1] /= image_height
-                    new_points.append(new_point)
-                    
-                new_segments.append(new_points)
-
+            for new_segment in Mask(mask.array).polygons().points:
+                new_segment = new_segment.astype(np.float64)
+                new_segment[:, 0] /= image_width
+                new_segment[:, 1] /= image_height
+                new_segments.append(new_segment)
             return new_im, new_labels, new_segments
         
         return im, labels, segments

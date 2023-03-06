@@ -125,14 +125,19 @@ class LoadImagesAndLabelsAndMasks(LoadImagesAndLabels):  # for training/testing
             # (h0, w0), (h, w)
             
             img = self.load_image_original(index) # original image as it is output of cv2.imread
-            labels = self.labels[index].copy() # np array (num_bboxes, 6) nromlaized class_id + bboxes in yolo format [xc, yc, w, h]
+            labels = self.labels[index].copy() # np array (num_bboxes, 5) nromlaized class_id + bboxes in yolo format [xc, yc, w, h]
             segments = self.segments[index].copy() # list of np.aray for polygons [(num_points, 2)]
             
             # apply the pre albumentation
             if self.augment:
                 # apply augs here
-                img, labels, segments = self.pre_albumentations(img, labels, segments)
-                
+                img, labels, segments = self.pre_albumentations(img, labels, segments, probability_partial=0.3, probability_complete=0.5)
+            
+            # saving to log file
+            if os.path.basename(self.im_files[index]) == "17e5b483-7482-4977-919f-e9704a3f5cd0.jpg":
+                save_in = f"./logs_{os.path.basename(self.im_files[index])}.log"
+                os.system(f'echo "{self.im_files[index]}\n{img.shape}\n{str(labels)}\n{str(segments)}\n\n\n\n" >> {save_in}')
+            
             # reisze the image
             h0, w0 = img.shape[:2]  # orig hw
             r = self.img_size / max(h0, w0)  # ratio
@@ -142,10 +147,6 @@ class LoadImagesAndLabelsAndMasks(LoadImagesAndLabels):  # for training/testing
                 
             # resized image size
             h, w = img.shape[:2]
-            
-            if os.path.basename(self.im_files[index]) == "17e5b483-7482-4977-919f-e9704a3f5cd0.jpg":
-                save_in = f"./logs_{os.path.basename(self.im_files[index])}.log"
-                os.system(f'echo "{self.im_files[index]}\n{img.shape}\n{str(labels)}\n{str(segments)}\n\n\n\n" >> {save_in}')
             
             # Letterbox
             shape = self.batch_shapes[self.batch[index]] if self.rect else self.img_size  # final letterboxed shape
