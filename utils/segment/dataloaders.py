@@ -10,6 +10,7 @@ import cv2
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, distributed
+import math
 
 from ..augmentations import augment_hsv, copy_paste, letterbox
 from ..dataloaders import InfiniteDataLoader, LoadImagesAndLabels, seed_worker
@@ -99,7 +100,6 @@ class LoadImagesAndLabelsAndMasks(LoadImagesAndLabels):  # for training/testing
         downsample_ratio=1,
         overlap=False,
     ):
-        print(rect, cache_images)
         super().__init__(path, img_size, batch_size, augment, hyp, rect, image_weights, cache_images, single_cls,
                          stride, pad, min_items, prefix)
         self.downsample_ratio = downsample_ratio
@@ -131,9 +131,17 @@ class LoadImagesAndLabelsAndMasks(LoadImagesAndLabels):  # for training/testing
             # apply the pre albumentation
             if self.augment:
                 # apply augs here
-                self.pre_albumentations(img, labels, segments)
-                pass
+                img, labels, segments = self.pre_albumentations(img, labels, segments)
                 
+            # reisze the image
+            h0, w0 = img.shape[:2]  # orig hw
+            r = self.img_size / max(h0, w0)  # ratio
+            if r != 1:  # if sizes are not equal
+                interp = cv2.INTER_LINEAR if (self.augment or r > 1) else cv2.INTER_AREA
+                img = cv2.resize(img, (math.ceil(w0 * r), math.ceil(h0 * r)), interpolation=interp)
+                
+            # resized image size
+            h, w = img.shape[:2]
             
             if os.path.basename(self.im_files[index]) == "17e5b483-7482-4977-919f-e9704a3f5cd0.jpg":
                 save_in = f"./logs_{os.path.basename(self.im_files[index])}.log"
