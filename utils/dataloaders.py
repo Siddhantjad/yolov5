@@ -753,13 +753,13 @@ class LoadImagesAndLabels(Dataset):
             im = cv2.imread(f)  # BGR
             assert im is not None, f'Image Not Found {f}'
 
-        return im 
-        h0, w0 = im.shape[:2]  # orig hw
-        r = self.img_size / max(h0, w0)  # ratio
-        if r != 1:  # if sizes are not equal
-            interp = cv2.INTER_LINEAR if (self.augment or r > 1) else cv2.INTER_AREA
-            im = cv2.resize(im, (math.ceil(w0 * r), math.ceil(h0 * r)), interpolation=interp)
-        return im, (h0, w0), im.shape[:2]  # im, hw_original, hw_resized
+        return im
+        # h0, w0 = im.shape[:2]  # orig hw
+        # r = self.img_size / max(h0, w0)  # ratio
+        # if r != 1:  # if sizes are not equal
+        #     interp = cv2.INTER_LINEAR if (self.augment or r > 1) else cv2.INTER_AREA
+        #     im = cv2.resize(im, (math.ceil(w0 * r), math.ceil(h0 * r)), interpolation=interp)
+        # return im, (h0, w0), im.shape[:2]  # im, hw_original, hw_resized
 
     def cache_images_to_disk(self, i):
         # Saves an image as an *.npy file for faster loading

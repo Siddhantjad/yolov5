@@ -61,7 +61,7 @@ class PreAlbumentations:
     ## ONLY SUPPORT ONE OBJECT PER IMAGE FOR NOW
     
     # YOLOv5 Albumentations class (optional, only used if package is installed)
-    def __init__(self, margin=0.1):
+    def __init__(self, margin=0.04):
         self.transform = None
         # prefix = colorstr('pre load albumentations: ')
         try:
@@ -71,10 +71,16 @@ class PreAlbumentations:
             # define margin for partial car
             self.margin = margin
             
+            list_for_size = [256,480,640,720,1080]
+
+            rand_size = random.choice(list_for_size)
             # define transforms for partial visible objects
             self.transforms_partial = A.Compose(
                 [
-                    A.RandomResizedCrop(height=350, width=350, scale=(0.8, 1.0), ratio=(0.9, 1.11), p=1.0),
+                    A.Resize(height=1920, width=1080, always_apply=True),
+                    # A.RandomResizedCrop(height=640, width=1080, scale=(0.8, 1.0), ratio=(0.9, 1.11), p=1.0),
+                    A.RandomCrop(width=rand_size, height=rand_size, p=1.0)
+
                 ], 
                 bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels'])
             )
@@ -82,7 +88,9 @@ class PreAlbumentations:
             # define transforms for completely visible object
             self.transforms_commplete = A.Compose(
                 [
-                    A.RandomResizedCrop(height=350, width=350, scale=(0.8, 1.0), ratio=(0.9, 1.11), p=1.0),
+                    A.Resize(height=1920, width=1080, always_apply=True),
+                    A.RandomResizedCrop(height=rand_size, width=rand_size, scale=(0.1, 0.8), ratio=(0.2, 1.11), p=1.0),
+                    # A.RandomCrop(width=rand_width, height=rand_height, p=1.0)
                 ], 
                 bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels'])
             )
@@ -93,7 +101,7 @@ class PreAlbumentations:
         # except Exception as e:
             #LOGGER.info(f'{prefix}{e}')
 
-    def __call__(self, im, labels, segments, probability_partial=0.3, probability_complete=0.5):
+    def __call__(self, im, labels, segments, probability_partial=0.05, probability_complete=0.5):
         if len(segments) > 1 or labels.shape[0] > 1:
             raise ValueError("multiple object per image are not supported yet")
         
@@ -114,43 +122,53 @@ class PreAlbumentations:
             h+yc-h/2 > (1-self.margin):   
             partial_object = True
         
+        
         # convert segments to mask
-        segments_ = []
+        segments_denorm = segments.copy()
+        # if np.any(segments[0] < 1.2):
+        segments_denorm = []
         for segment_ in segments:
             segment_[:, 0] *= image_width
             segment_[:, 1] *= image_height
-            segments_.append(segment_)
+            segments_denorm.append(segment_)
+
+        # print(segments_denorm)
         
         # apply augmentation for partial object
         if self.transforms_partial and random.random() < probability_partial and partial_object == True:
              # create mask
-            mask = Polygons(segments_).mask(width=image_width, height=image_height)
+            mask = Polygons(segments_denorm).mask(width=image_width, height=image_height)
             
-            new = self.transforms_partial(image=im, bboxes=labels[:, 1:], class_labels=labels[:, 0], mask=mask.array)
+            new = self.transforms_partial(image=im, bboxes=labels[:, 1:], class_labels=labels[:, 0], mask=np.array(mask.array, dtype=np.uint8))
             new_im, new_labels = new['image'], np.array([[c, *b] for c, b in zip(new['class_labels'], new['bboxes'])])
-            new_segments = []
-            for new_segment in Mask(mask.array).polygons().points:
+            segments_norm = []
+            for new_segment in Mask(new['mask']).polygons().points:
                 new_segment = new_segment.astype(np.float64)
-                new_segment[:, 0] /= image_width
-                new_segment[:, 1] /= image_height
-                new_segments.append(new_segment)
-            return new_im, new_labels, new_segments
+                new_segment[:, 0] /= new_im.shape[1]
+                new_segment[:, 1] /= new_im.shape[0]
+                segments_norm.append(new_segment)
+            
+            if len(segments_norm) == 1 and labels.shape[0]== 1:
+                return new_im, new_labels, segments_norm
             
         # apply augmentation for complete object
         if self.transforms_commplete and random.random() < probability_complete and partial_object == False:
-             # create mask
-            mask = Polygons(segments_).mask(width=image_width, height=image_height)
-            new = self.transforms_commplete(image=im, bboxes=labels[:, 1:], class_labels=labels[:, 0], mask=mask.array)
+            # create mask
+            mask = Polygons(segments_denorm).mask(width=image_width, height=image_height)
+            new = self.transforms_commplete(image=im, bboxes=labels[:, 1:], class_labels=labels[:, 0], mask=np.array(mask.array, dtype=np.uint8))
             new_im, new_labels = new['image'], np.array([[c, *b] for c, b in zip(new['class_labels'], new['bboxes'])])
-            new_segments = []
-            for new_segment in Mask(mask.array).polygons().points:
+            segments_norm = []
+            for new_segment in Mask(new['mask']).polygons().points:
                 new_segment = new_segment.astype(np.float64)
-                new_segment[:, 0] /= image_width
-                new_segment[:, 1] /= image_height
-                new_segments.append(new_segment)
-            return new_im, new_labels, new_segments
+                new_segment[:, 0] /= new_im.shape[1]
+                new_segment[:, 1] /= new_im.shape[0]
+                segments_norm.append(new_segment)
+            if len(segments_norm) == 1 and labels.shape[0]== 1:
+                return new_im, new_labels, segments_norm
         
-        return im, labels, segments
+        return im, labels, segments        
+
+
 
 def normalize(x, mean=IMAGENET_MEAN, std=IMAGENET_STD, inplace=False):
     # Denormalize RGB images x per ImageNet stats in BCHW format, i.e. = (x - mean) / std

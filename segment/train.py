@@ -340,7 +340,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
 
                 # Mosaic plots
                 if plots:
-                    if ni < 3:
+                    if ni  < 3:
                         plot_images_and_masks(imgs, targets, masks, paths, save_dir / f'train_batch{ni}.jpg')
                     if ni == 10:
                         files = sorted(save_dir.glob('train*.jpg'))

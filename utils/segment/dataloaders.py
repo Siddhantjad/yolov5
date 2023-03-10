@@ -131,12 +131,14 @@ class LoadImagesAndLabelsAndMasks(LoadImagesAndLabels):  # for training/testing
             # apply the pre albumentation
             if self.augment:
                 # apply augs here
-                img, labels, segments = self.pre_albumentations(img, labels, segments, probability_partial=0.3, probability_complete=0.5)
+                img, labels, segments = self.pre_albumentations(img, labels, segments, probability_partial=0.1, probability_complete=1.0)
+                # segments[0][:, 0] /= img.shape[1]
+                # segments[0][:, 1] /= img.shape[0]
             
-            # saving to log file
-            if os.path.basename(self.im_files[index]) == "17e5b483-7482-4977-919f-e9704a3f5cd0.jpg":
-                save_in = f"./logs_{os.path.basename(self.im_files[index])}.log"
-                os.system(f'echo "{self.im_files[index]}\n{img.shape}\n{str(labels)}\n{str(segments)}\n\n\n\n" >> {save_in}')
+            # saving to log file __1
+            # if os.path.basename(self.im_files[index]) == "f98d3ab7-be00-4c1a-971e-4c530c547780.jpg":
+            #     save_in = f"./logs_{os.path.basename(self.im_files[index])}.log"
+            #     os.system(f'echo "{self.im_files[index]}\n{img.shape}\n{str(labels)}\n{str(segments)}\n\n\n\n" >> {save_in}')
             
             # reisze the image
             h0, w0 = img.shape[:2]  # orig hw
